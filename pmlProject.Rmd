@@ -1,0 +1,79 @@
+---
+title: "Predicting the Quantified Self"
+author: "Esteban Gomez"
+date: "Sunday, June 24, 2015"
+output:
+  html_document:
+    keep_md: yes
+---
+
+## Abstract
+The present project is to predict the manner in which the group of people made the excercise. The "classe" variable will be the dependent variable we will try to predict. Random Forest method of prediction will be used.
+
+
+## Preprosessing
+The data is taken from the [Human Activity Recognition](http://groupware.les.inf.puc-rio.br/har) programme at [Groupware](http://groupware.les.inf.puc-rio.br/).
+
+The first step is to load the data from the provided sourcers.
+```{r downloading}
+trFile = 'pml-training.csv'
+tsFile = 'pml-testing.csv'
+trurl = 'https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv'
+tsurl = 'https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv'
+download.file(trurl, trFile, method='wget')
+download.file(tsurl, tsFile, method='wget')
+```
+
+To read the data a fuction is used so that all data is read with the same parameters.
+```{r reading}
+pmlread = function(x) { read.csv(x, na.strings = c("", "NA", "#DIV/0!") ) }
+training = pmlread(trFile)
+testing = pmlread(tsFile)
+training = training[,7:160]
+testing = testing[,7:160]
+```
+
+##Eliminating variables with missing NAs
+```{r cleanning}
+rm = function(x) {x[,colSums(is.na(x)) < nrow(x)]}
+training = rm(training)
+testing = rm(testing)
+complete = function(x) {x[,sapply(x, function(y) !any(is.na(y)))] }
+incomplete = function(x) {names( x[,sapply(x, function(y) any(is.na(y)))] ) }
+in.tr =incomplete(training)
+in.ts=complete(testing)
+training = complete(training)
+testing = complete(testing)
+```
+
+## Regression Model 
+The method applied here is randomw forest
+
+```{r train, cache=TRUE}
+library(caret)
+tr=createDataPartition(y=training$classe,p=0.3,list=FALSE)
+Train=training[tr,]
+Test =training[-tr,]
+model=train(classe~.,data=Train,method="rf",
+                trControl=trainControl(method="cv",number=5),
+                prox=TRUE,allowParallel=TRUE)
+``` 
+
+## Results
+Summary statistics on the model build
+```{r summary}
+summary(model)
+```
+
+We now compare the results from the predition with the actual data.
+```{r }
+library(caret)
+confusionMatrix(predict(model,newdata=Test[,-57]),
+                        Test$classe)
+```
+The oveall accuracy of 0.9908 shows us how the close the model is.
+
+```{r plot}
+plot(varImp(model))
+
+```
